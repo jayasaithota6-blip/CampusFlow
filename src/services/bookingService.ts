@@ -8,6 +8,9 @@ import {
 } from '../types';
 import { facilityService } from './facilityService';
 import { resourceService } from './resourceService';
+import { notificationService } from './notificationService';
+import { db } from './firebase';
+import { doc, setDoc, getDocs, collection } from 'firebase/firestore';
 
 const STORAGE_KEY = 'campusflow_bookings';
 
@@ -47,17 +50,54 @@ function parseTimeToMinutes(timeStr: string): number {
 
 export const bookingService = {
   async getAll(): Promise<Booking[]> {
-    return getStoredBookings();
+    const local = getStoredBookings();
+    try {
+      const snap = await getDocs(collection(db, 'bookings'));
+      const firestoreBookings: Booking[] = [];
+      snap.forEach((d) => {
+        firestoreBookings.push(d.data() as Booking);
+      });
+      if (firestoreBookings.length > 0) {
+        const map = new Map<string, Booking>();
+        local.forEach((b) => map.set(b.id, b));
+        firestoreBookings.forEach((b) => map.set(b.id, b));
+        return Array.from(map.values()).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      }
+    } catch {
+      // fallback
+    }
+    return local;
   },
 
   async getById(id: string): Promise<Booking | undefined> {
-    const list = getStoredBookings();
-    return list.find((b) => b.id.toLowerCase() === id.toLowerCase());
+    const list = await this.getAll();
+    const cleanId = id.trim().toLowerCase();
+    return list.find((b) => b.id.toLowerCase() === cleanId);
   },
 
-  async getByUser(userId: string): Promise<Booking[]> {
-    const list = getStoredBookings();
-    return list.filter((b) => b.organizerId === userId);
+  async getByUser(userOrId: string | { id?: string; email?: string; collegeId?: string }): Promise<Booking[]> {
+    const list = await this.getAll();
+    if (typeof userOrId === 'string') {
+      const q = userOrId.trim().toLowerCase();
+      return list.filter(
+        (b) =>
+          b.organizerId.toLowerCase() === q ||
+          b.organizerEmail.toLowerCase() === q
+      );
+    }
+    const uid = (userOrId.id || '').trim().toLowerCase();
+    const uemail = (userOrId.email || '').trim().toLowerCase();
+    const ucid = (userOrId.collegeId || '').trim().toLowerCase();
+
+    return list.filter((b) => {
+      const bOrg = (b.organizerId || '').trim().toLowerCase();
+      const bEmail = (b.organizerEmail || '').trim().toLowerCase();
+      return (
+        (uid && bOrg === uid) ||
+        (uemail && bEmail === uemail) ||
+        (ucid && bOrg === ucid)
+      );
+    });
   },
 
   async getByFacilityAndDate(facilityId: string, date: string): Promise<Booking[]> {
@@ -194,6 +234,14 @@ export const bookingService = {
 
     list.unshift(newBooking);
     saveBookings(list);
+
+    // Save to Firestore
+    try {
+      await setDoc(doc(db, 'bookings', newBooking.id), newBooking);
+    } catch (err) {
+      console.warn('Firestore booking write notice:', err);
+    }
+
     return newBooking;
   },
 
@@ -239,6 +287,56 @@ export const bookingService = {
 
     list[index] = { ...cur };
     saveBookings(list);
+
+    // Notify the user in their personal notification center
+    if (cur.organizerId) {
+      if (status === 'Confirmed' || status === 'HOD Approved') {
+        notificationService.addNotification(cur.organizerId, {
+          title: 'Booking Confirmed · QR Pass Ready',
+          message: `Your booking ${cur.id} for ${cur.facilityName} on ${cur.date} (${cur.startTime} – ${cur.endTime}) has been approved and confirmed. Your digital gate pass is ready.`,
+          category: 'Approval',
+          link: `/bookings/${cur.id}`,
+        }).catch(() => {});
+        if (cur.organizerEmail && cur.organizerEmail !== cur.organizerId) {
+          notificationService.addNotification(cur.organizerEmail, {
+            title: 'Booking Confirmed · QR Pass Ready',
+            message: `Your booking ${cur.id} for ${cur.facilityName} on ${cur.date} (${cur.startTime} – ${cur.endTime}) has been approved and confirmed.`,
+            category: 'Approval',
+            link: `/bookings/${cur.id}`,
+          }).catch(() => {});
+        }
+      } else if (status === 'Rejected') {
+        notificationService.addNotification(cur.organizerId, {
+          title: 'Booking Request Declined',
+          message: `Your booking request ${cur.id} for ${cur.facilityName} on ${cur.date} was declined: ${options?.rejectionReason || 'Department authorization declined.'}`,
+          category: 'Approval',
+          link: `/bookings/${cur.id}`,
+        }).catch(() => {});
+        if (cur.organizerEmail && cur.organizerEmail !== cur.organizerId) {
+          notificationService.addNotification(cur.organizerEmail, {
+            title: 'Booking Request Declined',
+            message: `Your booking request ${cur.id} for ${cur.facilityName} on ${cur.date} was declined: ${options?.rejectionReason || 'Department authorization declined.'}`,
+            category: 'Approval',
+            link: `/bookings/${cur.id}`,
+          }).catch(() => {});
+        }
+      } else if (status === 'Cancelled') {
+        notificationService.addNotification(cur.organizerId, {
+          title: 'Reservation Cancelled',
+          message: `Your booking ${cur.id} for ${cur.facilityName} on ${cur.date} has been cancelled.`,
+          category: 'Booking',
+          link: `/my-bookings`,
+        }).catch(() => {});
+      }
+    }
+
+    // Update in Firestore
+    try {
+      await setDoc(doc(db, 'bookings', id), cur, { merge: true });
+    } catch (err) {
+      console.warn('Firestore booking update notice:', err);
+    }
+
     return cur;
   },
 

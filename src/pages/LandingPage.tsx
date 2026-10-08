@@ -1,24 +1,20 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   Sparkles,
   ArrowRight,
-  ShieldCheck,
   Zap,
   Calendar,
   Clock,
   QrCode,
   BarChart,
   CheckCircle,
-  Building,
   Layers,
-  ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export function LandingPage() {
-  const { isAuthenticated, role } = useAuth();
-  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   return (
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -57,7 +53,7 @@ export function LandingPage() {
           <div className="flex items-center gap-3">
             {isAuthenticated ? (
               <Link
-                to={role === 'admin' ? '/admin' : '/dashboard'}
+                to="/dashboard"
                 className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition-colors"
               >
                 <span>Go to Dashboard</span>
@@ -69,19 +65,13 @@ export function LandingPage() {
                   to="/login"
                   className="rounded-lg px-3 py-2 text-xs font-medium text-neutral-700 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
                 >
-                  Sign In
+                  Login
                 </Link>
                 <Link
                   to="/signup"
                   className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-800 shadow-2xs hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
                 >
                   Sign Up
-                </Link>
-                <Link
-                  to="/book"
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
-                >
-                  Book a Facility
                 </Link>
               </>
             )}
@@ -121,19 +111,6 @@ export function LandingPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 bg-white px-6 py-3.5 text-sm font-semibold text-neutral-800 shadow-2xs hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800 transition-colors"
               >
                 <span>Explore Facilities</span>
-              </Link>
-              <Link
-                to="/signup"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 px-5 py-3.5 text-sm font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 transition-colors"
-              >
-                <span>New User? Sign Up</span>
-              </Link>
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-1.5 px-4 py-3.5 text-sm font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-              >
-                <span>Demo Sign In</span>
-                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
 

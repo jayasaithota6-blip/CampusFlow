@@ -1,0 +1,185 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdminEmail() {
+      return isAuthenticated() && request.auth.token.email == 'jayasaithota6@gmail.com';
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getUserRole() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? getUserData().role
+        : 'guest';
+    }
+
+    function isHOD() {
+      return isAuthenticated() && (
+        isAdminEmail() ||
+        getUserRole() == 'HOD' ||
+        getUserRole() == 'hod' ||
+        getUserRole() == 'admin'
+      );
+    }
+
+    function isGateStaff() {
+      return isAuthenticated() && (
+        getUserRole() == 'gate_staff' ||
+        getUserRole() == 'security' ||
+        getUserRole() == 'facility_manager' ||
+        isHOD()
+      );
+    }
+
+    // Connection health check on application boot
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // System bootstrap metadata (tracks first-time HOD initialization)
+    match /system/{docId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    // ------------------------------------------------------------------------
+    // 1. Users Collection
+    // - Signed-in user can read their own profile; HOD can read all profiles
+    // - Signed-in user can create their own users/{uid} document on sign-up; HOD can create accounts
+    // - Only a HOD can write other users; a user can update their own profile
+    // ------------------------------------------------------------------------
+    match /users/{userId} {
+      // Signed-in user can read their own profile, and HOD can read other users
+      allow get: if isAuthenticated() && (isOwner(userId) || isHOD());
+      allow list: if isAuthenticated() && isHOD();
+
+      // Signed-in user can create their own users/{uid} document on sign-up
+      allow create: if isAuthenticated() && (
+        isOwner(userId) ||
+        isHOD()
+      );
+
+      // Only a HOD can write other users; owners can update their own profile
+      allow update: if isAuthenticated() && (
+        (isOwner(userId) && request.resource.data.role == resource.data.role) ||
+        isHOD()
+      );
+
+      // Only a HOD can delete users
+      allow delete: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 2. Academic Departments
+    // - Read: All authenticated users
+    // - Write: Only HOD and Admin
+    // ------------------------------------------------------------------------
+    match /departments/{deptId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. Equipment & Resources Inventory
+    // - Read: All authenticated users
+    // - Write/Allocate/Return: Only HOD and Admin
+    // ------------------------------------------------------------------------
+    match /equipment/{itemId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    // Legacy resource alias
+    match /resources/{resourceId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. Maintenance Work Orders
+    // - Read: All authenticated users
+    // - Write/Update status: HOD, Admin, or reporter creating ticket
+    // ------------------------------------------------------------------------
+    match /workOrders/{orderId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 5. Campus Venues & Facilities
+    // - Read: All authenticated users
+    // - Write: Only HOD and Admin
+    // ------------------------------------------------------------------------
+    match /venues/{venueId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    match /facilities/{facilityId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 6. Bookings & Reservations
+    // - Read: Authenticated users
+    // - Create: Authenticated users
+    // - Update: HOD (approval/rejection) or Organizer
+    // - Delete: HOD
+    // ------------------------------------------------------------------------
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        isHOD() ||
+        resource.data.organizerId == request.auth.uid ||
+        resource.data.organizerEmail == request.auth.token.email
+      );
+      allow delete: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 7. Gate Scans & Digital Passes
+    // - Gate staff and HOD can record and view gate scans
+    // ------------------------------------------------------------------------
+    match /gateScans/{scanId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isHOD();
+    }
+
+    match /passes/{passId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+
+    // ------------------------------------------------------------------------
+    // 8. Audit Logs & System Settings
+    // - Audit log: readable by HOD, appendable by authenticated actions
+    // - Settings: readable by authenticated users, writable only by HOD
+    // ------------------------------------------------------------------------
+    match /auditLogs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isHOD();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isHOD();
+    }
+  }
+}

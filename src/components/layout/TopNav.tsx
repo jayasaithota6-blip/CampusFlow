@@ -6,10 +6,9 @@ import {
   Moon,
   Bell,
   Plus,
-  QrCode,
-  ShieldAlert,
+  LogOut,
 } from 'lucide-react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { notificationService } from '../../services/notificationService';
@@ -20,18 +19,17 @@ interface TopNavProps {
 }
 
 export function TopNav({ onMobileMenuToggle }: TopNavProps) {
-  const { user, role, switchRole } = useAuth();
+  const { user, role, requestLogout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    notificationService.getAll().then((items) => {
+    notificationService.getByUser(user?.id || 'usr-student-01').then((items) => {
       setUnreadCount(items.filter((i) => !i.read).length);
     });
-  }, [location.pathname]);
+  }, [location.pathname, user?.id]);
 
   // Global keyboard shortcut CMD+K / CTRL+K
   useEffect(() => {
@@ -112,17 +110,6 @@ export function TopNav({ onMobileMenuToggle }: TopNavProps) {
             </kbd>
           </button>
 
-          {/* QR Verification quick icon for managers / admins */}
-          {(role === 'facility_manager' || role === 'admin') && (
-            <Link
-              to="/qr-verification"
-              className="flex items-center gap-1 rounded-lg border border-neutral-200 p-2 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800"
-              title="QR Pass Scanner"
-            >
-              <QrCode className="h-4 w-4" />
-            </Link>
-          )}
-
           {/* Quick "Book Facility" primary button */}
           <Link
             to="/book"
@@ -132,28 +119,50 @@ export function TopNav({ onMobileMenuToggle }: TopNavProps) {
             <span>Book Facility</span>
           </Link>
 
-          {/* Theme switcher */}
+          {/* Dark / Light Mode Switcher */}
           <button
             onClick={toggleTheme}
-            className="rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 transition-colors"
-            aria-label="Toggle color theme"
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle dark and light color theme"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? (
+              <>
+                <Sun className="h-4 w-4 text-amber-400" />
+                <span className="hidden md:inline text-[11px]">Light</span>
+              </>
+            ) : (
+              <>
+                <Moon className="h-4 w-4 text-neutral-600" />
+                <span className="hidden md:inline text-[11px]">Dark</span>
+              </>
+            )}
           </button>
 
           {/* Notifications bell */}
           <Link
             to="/notifications"
-            className="relative rounded-lg p-2 text-neutral-500 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800 transition-colors"
+            className="relative rounded-lg border border-neutral-200 p-2 text-neutral-600 hover:bg-neutral-100 dark:border-neutral-750 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white">
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[10px] font-bold text-white shadow-xs">
                 {unreadCount}
               </span>
             )}
           </Link>
+
+          {/* Session Logout button */}
+          <button
+            onClick={requestLogout}
+            className="flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:border-rose-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-rose-400 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+            title="Sign out of account"
+            aria-label="Logout"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
         </div>
       </header>
 

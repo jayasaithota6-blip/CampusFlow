@@ -18,6 +18,7 @@ import {
 import { facilityService } from '../services/facilityService';
 import { resourceService } from '../services/resourceService';
 import { bookingService } from '../services/bookingService';
+import { notificationService } from '../services/notificationService';
 import { Facility, Resource, EventType, ConflictCheckResult, Booking } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -49,8 +50,8 @@ export function BookFacilityPage() {
   const [description, setDescription] = useState<string>('Hands-on cloud & AI development session with students.');
   const [participants, setParticipants] = useState<number>(80);
   const [department, setDepartment] = useState<string>(user?.department || 'Computer Science');
-  const [organizerName, setOrganizerName] = useState<string>(user?.name || 'Rahul Sharma');
-  const [organizerPhone, setOrganizerPhone] = useState<string>(user?.phone || '+1 (555) 234-5678');
+  const [organizerName, setOrganizerName] = useState<string>(user?.name || '');
+  const [organizerPhone, setOrganizerPhone] = useState<string>(user?.phone || '');
 
   // Sync user profile if user changes or signs in
   useEffect(() => {
@@ -153,7 +154,7 @@ export function BookFacilityPage() {
         participants,
         organizerId: user?.id || 'usr-guest',
         organizerName,
-        organizerEmail: user?.email || 'user@campus.edu',
+        organizerEmail: user?.email || '',
         organizerPhone,
         department,
         status: 'Pending',
@@ -162,6 +163,15 @@ export function BookFacilityPage() {
 
       setSubmittedBooking(created);
       success('Booking Submitted', `Request ${created.id} is now awaiting department review.`);
+
+      if (user?.id) {
+        notificationService.addNotification(user.id, {
+          title: 'Booking Request Submitted',
+          message: `Your reservation request for ${selectedFacility.name} on ${date} (${startTime} - ${endTime}) has been logged.`,
+          category: 'Booking',
+          link: `/bookings/${created.id}`,
+        }).catch(() => {});
+      }
     } catch (err: any) {
       error('Submission Error', err.message || 'Failed to submit booking request.');
     }

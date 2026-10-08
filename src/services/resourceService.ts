@@ -39,7 +39,6 @@ export const resourceService = {
     if (index === -1) throw new Error('Resource not found');
 
     const updated = { ...list[index], ...updates };
-    // update status based on available
     if (updated.maintenanceQuantity >= updated.totalQuantity) {
       updated.status = 'Maintenance';
     } else if (updated.availableQuantity <= 0) {
@@ -69,14 +68,44 @@ export const resourceService = {
     return cur;
   },
 
+  async returnFromMaintenance(id: string, count: number): Promise<Resource> {
+    const list = getStoredResources();
+    const index = list.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error('Resource not found');
+
+    const cur = list[index];
+    const returnCount = Math.min(count, cur.maintenanceQuantity);
+    cur.maintenanceQuantity -= returnCount;
+    cur.availableQuantity += returnCount;
+    if (cur.availableQuantity > 0) cur.status = 'Available';
+    saveResources(list);
+    return cur;
+  },
+
+  async updateResource(id: string, updates: Partial<Resource>): Promise<Resource> {
+    const list = getStoredResources();
+    const index = list.findIndex((r) => r.id === id);
+    if (index === -1) throw new Error('Resource not found');
+
+    list[index] = { ...list[index], ...updates };
+    saveResources(list);
+    return list[index];
+  },
+
   async addResource(newRes: Omit<Resource, 'id'>): Promise<Resource> {
     const list = getStoredResources();
     const item: Resource = {
       ...newRes,
-      id: `res-custom-${Date.now()}`,
+      id: `res-custom-${Date.now().toString(36)}`,
     };
-    list.push(item);
+    list.unshift(item);
     saveResources(list);
     return item;
+  },
+
+  async deleteResource(id: string): Promise<void> {
+    const list = getStoredResources();
+    const filtered = list.filter((r) => r.id !== id);
+    saveResources(filtered);
   },
 };

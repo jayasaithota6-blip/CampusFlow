@@ -1,11 +1,52 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import { Sidebar } from './Sidebar';
 import { TopNav } from './TopNav';
 import { MobileBottomNav } from './MobileBottomNav';
 
 export function AppLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { isAuthenticated, role } = useAuth();
+  const location = useLocation();
+
+  // Redirect unauthenticated visitors to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  // Route restrictions based on role
+  if (role === 'student' || role === 'faculty') {
+    const studentRestricted = [
+      '/approvals',
+      '/admin',
+      '/resources',
+      '/maintenance',
+      '/users',
+      '/analytics',
+      '/departments',
+      '/qr-verification',
+      '/settings',
+    ];
+    if (studentRestricted.some((path) => location.pathname.startsWith(path))) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
+  if (role === 'hod') {
+    const hodRestricted = [
+      '/admin',
+      '/resources',
+      '/maintenance',
+      '/users',
+      '/analytics',
+      '/departments',
+      '/settings',
+    ];
+    if (hodRestricted.some((path) => location.pathname.startsWith(path))) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
 
   return (
     <div className="flex min-h-screen bg-neutral-50 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">

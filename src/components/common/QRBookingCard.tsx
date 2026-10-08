@@ -1,9 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Booking } from '../../types';
-import { Download, Printer, Share2, CheckCircle2, ShieldCheck, Lock, AlertCircle, Sparkles, XCircle, ArrowRight } from 'lucide-react';
+import { Download, Printer, Share2, CheckCircle2, ShieldCheck, Lock, AlertCircle, XCircle } from 'lucide-react';
 import { useToast } from '../../contexts/ToastContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { approvalService } from '../../services/approvalService';
 
 interface QRBookingCardProps {
   booking: Booking;
@@ -11,17 +9,13 @@ interface QRBookingCardProps {
   onStatusUpdated?: (updated: Booking) => void;
 }
 
-export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdated }: QRBookingCardProps) {
-  const [booking, setBooking] = useState<Booking>(initialBooking);
-  const [isApproving, setIsApproving] = useState(false);
+export function QRBookingCard({ booking, onClose }: QRBookingCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
-  const { success, info, error } = useToast();
-  const { user } = useAuth();
+  const { success, info } = useToast();
 
   const isApproved = booking.status === 'Confirmed' || booking.status.toLowerCase().includes('approved');
   const isRejected = booking.status === 'Rejected';
   const isCancelled = booking.status === 'Cancelled';
-  const isPending = !isApproved && !isRejected && !isCancelled;
 
   const handlePrint = () => {
     window.print();
@@ -41,27 +35,6 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
     } else {
       navigator.clipboard?.writeText?.(window.location.href);
       info('Link Copied', 'Booking pass link copied to clipboard.');
-    }
-  };
-
-  const handleQuickHODApprove = async () => {
-    setIsApproving(true);
-    try {
-      const updated = await approvalService.approveRequest(
-        booking.id,
-        { name: user?.name || 'Dr. Marcus Vance (HOD)', role: 'hod' },
-        'Approved by Head of Department (HOD). Digital QR pass generated.'
-      );
-      setBooking(updated);
-      onStatusUpdated?.(updated);
-      success(
-        'HOD Approved · QR Generated!',
-        `Digital QR Entry Pass for ${updated.organizerName} is now generated and verified!`
-      );
-    } catch (err: any) {
-      error('Approval Failed', err.message || 'Could not approve request.');
-    } finally {
-      setIsApproving(false);
     }
   };
 
@@ -89,6 +62,8 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
               <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             ) : isRejected ? (
               <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+            ) : isCancelled ? (
+              <XCircle className="h-5 w-5 text-neutral-400" />
             ) : (
               <Lock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             )}
@@ -102,6 +77,8 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : isRejected
                 ? 'text-rose-600 dark:text-rose-400'
+                : isCancelled
+                ? 'text-neutral-500'
                 : 'text-amber-600 dark:text-amber-400'
             }`}
           >
@@ -111,7 +88,7 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
 
         {/* QR Code Container OR Pending/Rejected State */}
         {isApproved ? (
-          <div className="my-5 flex flex-col items-center justify-center rounded-xl bg-emerald-50/60 p-6 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40">
+          <div className="my-5 flex flex-col items-center justify-center rounded-xl bg-emerald-50/60 p-6 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-900/40">
             <div className="relative rounded-lg bg-white p-3 shadow-xs">
               <svg
                 viewBox="0 0 100 100"
@@ -119,7 +96,7 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
                 shapeRendering="crispEdges"
                 aria-label={`QR Code for booking ${booking.id}`}
               >
-                {/* Corner position markers */}
+                {/* Standard Finder Pattern Outer & Inner Squares */}
                 <rect x="0" y="0" width="28" height="28" fill="#0f172a" rx="4" />
                 <rect x="4" y="4" width="20" height="20" fill="#ffffff" rx="2" />
                 <rect x="8" y="8" width="12" height="12" fill="#0f172a" rx="1" />
@@ -145,12 +122,13 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
               </svg>
             </div>
             
-            <div className="mt-3 text-center">
-              <div className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
-                <CheckCircle2 className="h-3 w-3" />
-                <span>Verified HOD Authorized</span>
+            {/* Verification Badge */}
+            <div className="mt-3.5 text-center space-y-1">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 border border-emerald-300 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/60 dark:border-emerald-700 dark:text-emerald-300 shadow-2xs">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Verified · HOD Approved Gate Pass</span>
               </div>
-              <p className="mt-1.5 font-mono text-[11px] font-semibold tracking-wider text-neutral-600 dark:text-neutral-400">
+              <p className="font-mono text-[11px] font-semibold tracking-wider text-neutral-600 dark:text-neutral-400 pt-0.5">
                 {booking.qrCodeToken || `CAMPUSFLOW-QR-${booking.id}`}
               </p>
             </div>
@@ -164,46 +142,52 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
               QR Entry Pass Not Issued
             </h4>
             <p className="mt-1 text-[11px] text-rose-700 dark:text-rose-300 max-w-xs">
-              This booking request was denied by the Head of Department.
+              This reservation request was declined by the Head of Department.
             </p>
             {booking.rejectionReason && (
-              <p className="mt-2 text-[11px] italic bg-white/60 dark:bg-neutral-900/60 p-2 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200">
+              <p className="mt-2 text-[11px] italic bg-white/80 dark:bg-neutral-900/80 p-2 rounded-lg border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200">
                 &ldquo;{booking.rejectionReason}&rdquo;
               </p>
             )}
           </div>
+        ) : isCancelled ? (
+          <div className="my-5 flex flex-col items-center justify-center rounded-xl bg-neutral-100 p-6 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300 mb-3">
+              <XCircle className="h-6 w-6" />
+            </div>
+            <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-300">
+              Reservation Cancelled
+            </h4>
+            <p className="mt-1 text-[11px] text-neutral-500 max-w-xs">
+              This booking was cancelled and the QR pass has been revoked.
+            </p>
+          </div>
         ) : (
-          /* Pending HOD Approval State */
-          <div className="my-5 flex flex-col items-center justify-center rounded-xl bg-amber-50/80 p-6 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-center">
-            <div className="relative mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/80 dark:text-amber-300">
+          /* Pending HOD Approval State - STRICT: ONLY HOD CAN APPROVE */
+          <div className="my-5 flex flex-col items-center justify-center rounded-xl bg-amber-50/80 p-6 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 text-center space-y-2">
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/80 dark:text-amber-300">
               <Lock className="h-7 w-7" />
-              <div className="absolute -bottom-1 -right-1 rounded-full bg-amber-600 p-1 text-white">
-                <Sparkles className="h-3 w-3" />
-              </div>
             </div>
             
             <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-              QR Pass Locked · Awaiting HOD Approval
+              QR Pass Locked · Pending HOD Approval
             </h4>
-            <p className="mt-1.5 text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed max-w-xs">
-              CampusFlow requires Head of Department (HOD) sign-off. As soon as the HOD approves this request, your cryptographic digital QR entry pass will be generated instantly.
+            <p className="text-[11px] text-amber-800 dark:text-amber-300/90 leading-relaxed max-w-xs">
+              This booking request has been submitted and is currently in the Head of Department (HOD) review queue.
             </p>
-
-            {/* Quick Demo Approval Button */}
-            <div className="mt-4 pt-3 border-t border-amber-200/60 dark:border-amber-900/60 w-full">
-              <button
-                onClick={handleQuickHODApprove}
-                disabled={isApproving}
-                className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-700 transition-colors disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>{isApproving ? 'Approving & Generating...' : 'Approve as HOD Now (Demo)'}</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-              <p className="mt-1 text-[10px] text-neutral-500">
-                Click above to simulate immediate HOD authorization & QR generation
-              </p>
+            <div className="rounded-lg bg-amber-100/60 p-2.5 text-[11px] text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 text-left w-full space-y-1">
+              <div className="flex justify-between">
+                <span className="text-neutral-500 dark:text-neutral-400">Review Stage:</span>
+                <span className="font-semibold">HOD Academic Sign-Off</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-neutral-500 dark:text-neutral-400">Current Status:</span>
+                <span className="font-semibold text-amber-700 dark:text-amber-300">Awaiting Decision</span>
+              </div>
             </div>
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 italic pt-1">
+              Your official QR code entry pass and verification badge will unlock automatically as soon as the HOD approves your request.
+            </p>
           </div>
         )}
 
@@ -222,49 +206,53 @@ export function QRBookingCard({ booking: initialBooking, onClose, onStatusUpdate
             </span>
           </div>
           <div className="flex justify-between border-b border-neutral-100 py-1 dark:border-neutral-800">
-            <span className="text-neutral-500">Date</span>
-            <span className="font-mono text-neutral-900 dark:text-neutral-100">{booking.date}</span>
+            <span className="text-neutral-500">Schedule</span>
+            <span className="font-mono text-neutral-900 dark:text-neutral-100 text-right">
+              {booking.date} · {booking.startTime}
+            </span>
           </div>
           <div className="flex justify-between border-b border-neutral-100 py-1 dark:border-neutral-800">
-            <span className="text-neutral-500">Time Slot</span>
-            <span className="font-mono text-neutral-900 dark:text-neutral-100">
-              {booking.startTime} – {booking.endTime}
+            <span className="text-neutral-500">Organizer</span>
+            <span className="text-neutral-900 dark:text-neutral-100 text-right">
+              {booking.organizerName} ({booking.department})
             </span>
           </div>
           <div className="flex justify-between py-1">
-            <span className="text-neutral-500">Authorized Requester</span>
-            <span className="font-medium text-neutral-900 dark:text-neutral-100">
-              {booking.organizerName}
+            <span className="text-neutral-500">Booking Token</span>
+            <span className="font-mono font-bold text-neutral-900 dark:text-neutral-100 text-right">
+              {booking.id}
             </span>
           </div>
         </div>
 
-        {/* Action Buttons (Enabled when QR is generated) */}
-        {isApproved && (
-          <div className="mt-5 flex items-center justify-center gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+        {/* Action Controls */}
+        <div className="mt-5 flex gap-2 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+          {isApproved ? (
+            <>
+              <button
+                onClick={handlePrint}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-neutral-200 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span>Print Pass</span>
+              </button>
+              <button
+                onClick={handleDownload}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-neutral-900 py-2 text-xs font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Save Pass</span>
+              </button>
+            </>
+          ) : (
             <button
-              onClick={handleDownload}
-              className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+              onClick={onClose}
+              className="w-full rounded-lg bg-neutral-900 py-2 text-xs font-semibold text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-950 dark:hover:bg-neutral-200 transition-colors"
             >
-              <Download className="h-3.5 w-3.5" />
-              <span>Download</span>
+              Close
             </button>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
-            >
-              <Printer className="h-3.5 w-3.5" />
-              <span>Print</span>
-            </button>
-            <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200 transition-colors"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-              <span>Share</span>
-            </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

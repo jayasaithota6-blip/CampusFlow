@@ -1,11 +1,4 @@
-export type UserRole =
-  | 'student'
-  | 'faculty'
-  | 'club'
-  | 'coordinator'
-  | 'hod'
-  | 'admin'
-  | 'facility_manager';
+export type UserRole = 'student' | 'faculty' | 'hod' | 'HOD' | 'coordinator' | 'admin' | 'facility_manager';
 
 export type FacilityType =
   | 'Auditorium'
@@ -43,15 +36,19 @@ export type EventType =
 export interface User {
   id: string;
   collegeId?: string;
+  employeeId?: string;
   name: string;
   email: string;
   role: UserRole;
   department: string;
   phone?: string;
   avatar?: string;
-  status: 'Active' | 'Inactive';
-  lastActive: string;
+  status: 'Active' | 'Inactive' | 'active' | 'inactive';
+  lastActive?: string;
   password?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
 }
 
 export interface Facility {
@@ -62,14 +59,17 @@ export interface Facility {
   floor: string;
   capacity: number;
   status: FacilityStatus;
-  rating: number;
-  reviewCount: number;
+  rating?: number;
+  reviewCount?: number;
   hourlyRate?: number;
-  imageUrl: string;
+  imageUrl?: string;
   description: string;
   amenities: string[];
   accessibility: string[];
   maintenanceNotice?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
 }
 
 export interface Resource {
@@ -82,6 +82,12 @@ export interface Resource {
   maintenanceQuantity: number;
   status: 'Available' | 'Low Stock' | 'Unavailable' | 'Maintenance';
   location: string;
+  assignedTo?: string;
+  allocatedDepartment?: string;
+  allocatedEvent?: string;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
 }
 
 export interface BookingResourceItem {
@@ -129,18 +135,23 @@ export interface Booking {
 
 export interface MaintenanceTicket {
   id: string;
+  title?: string;
   itemType: 'Facility' | 'Resource';
-  itemId: string;
+  itemId?: string;
   itemName: string;
   location: string;
   reason: string;
-  startDate: string;
-  expectedCompletionDate: string;
+  startDate?: string;
+  expectedCompletionDate?: string;
   status: 'In Progress' | 'Scheduled' | 'Resolved';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   assignedTechnician?: string;
+  contractor?: string;
   notes?: string;
   reportedBy: string;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
 }
 
 export interface Department {
@@ -150,9 +161,68 @@ export interface Department {
   coordinatorName: string;
   coordinatorEmail: string;
   hodName: string;
+  hodId?: string;
   totalBookings: number;
   upcomingEvents: number;
   usagePercentage: number;
+  staffCount?: number;
+  studentCount?: number;
+  createdAt?: any;
+  updatedAt?: any;
+  createdBy?: string;
+}
+
+export interface GateScan {
+  id: string;
+  tokenId: string;
+  timestamp: string;
+  personName: string;
+  personRole?: string;
+  department?: string;
+  venueName: string;
+  gate: string;
+  status: 'Valid' | 'Expired' | 'Invalid';
+  note?: string;
+  scannedAt?: string;
+  scannedBy?: string;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export interface GatePass {
+  id: string;
+  tokenId: string;
+  bookingId?: string;
+  personName: string;
+  personEmail: string;
+  role?: string;
+  venueName: string;
+  validFrom: string;
+  validTo: string;
+  gate: string;
+  status: 'Valid' | 'Expired' | 'Revoked';
+  createdAt?: any;
+  createdBy?: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorEmail?: string;
+  action: string;
+  target: string;
+  details?: string;
+  timestamp: string;
+  createdAt?: any;
+}
+
+export interface SystemSettings {
+  hodMax: number;
+  campusName: string;
+  allowSignups?: boolean;
+  updatedAt?: any;
+  updatedBy?: string;
 }
 
 export interface NotificationItem {

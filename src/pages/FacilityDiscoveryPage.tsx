@@ -10,13 +10,26 @@ import {
   Sparkles,
   ArrowRight,
   SlidersHorizontal,
+  Plus,
+  Trash2,
+  Edit,
+  Wrench,
+  X,
 } from 'lucide-react';
 import { facilityService } from '../services/facilityService';
 import { Facility, FacilityType, FacilityStatus } from '../types';
 import { StatusBadge } from '../components/common/Badge';
 import { EmptyState, LoadingState } from '../components/common/EmptyState';
+import { Modal } from '../components/common/Modal';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 
 export function FacilityDiscoveryPage() {
+  const { isHOD, isAdmin, role } = useAuth();
+  const { success, error } = useToast();
+  const isManagement = isHOD || isAdmin || role === 'hod';
+
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -26,6 +39,27 @@ export function FacilityDiscoveryPage() {
   const [selectedMinCapacity, setSelectedMinCapacity] = useState<number>(0);
   const [selectedAmenity, setSelectedAmenity] = useState<string>('All');
   const [selectedAccessibility, setSelectedAccessibility] = useState<string>('All');
+
+  // Management modals
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
+  const [deletingFacility, setDeletingFacility] = useState<Facility | null>(null);
+
+  // New Facility Form
+  const [newName, setNewName] = useState('');
+  const [newBuilding, setNewBuilding] = useState('APJ Abdul Kalam Complex');
+  const [newType, setNewType] = useState<FacilityType>('Seminar Hall');
+  const [newFloor, setNewFloor] = useState('Ground Floor');
+  const [newCapacity, setNewCapacity] = useState<number>(100);
+  const [newHourlyRate, setNewHourlyRate] = useState<number>(0);
+  const [newAmenities, setNewAmenities] = useState('Laser Projector, Wi-Fi, Microphones, Air Conditioned');
+  const [newDescription, setNewDescription] = useState('Modern multi-media campus facility.');
+  const [newImageUrl, setNewImageUrl] = useState('https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80');
+
+  // Edit Facility Form
+  const [editCapacity, setEditCapacity] = useState<number>(100);
+  const [editStatus, setEditStatus] = useState<FacilityStatus>('Available');
+  const [editNotice, setEditNotice] = useState('');
 
   const navigate = useNavigate();
 
@@ -58,27 +92,117 @@ export function FacilityDiscoveryPage() {
     setSelectedAccessibility('All');
   };
 
+  const handleCreateFacility = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const amenitiesList = newAmenities.split(',').map((s) => s.trim()).filter(Boolean);
+      await facilityService.addFacility({
+        name: newName,
+        building: newBuilding,
+        type: newType,
+        floor: newFloor,
+        capacity: Number(newCapacity),
+        hourlyRate: Number(newHourlyRate),
+        amenities: amenitiesList,
+        accessibility: ['Wheelchair Accessible', 'Elevator Nearby'],
+        rating: 4.8,
+        reviewCount: 1,
+        imageUrl: newImageUrl || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=1200&q=80',
+        description: newDescription,
+        status: 'Available',
+      });
+      success('Facility Added', `${newName} has been added to the campus catalog.`);
+      setIsAddModalOpen(false);
+      resetAddForm();
+      loadFacilities();
+    } catch (err: any) {
+      error('Creation Failed', err.message || 'Could not add facility.');
+    }
+  };
+
+  const resetAddForm = () => {
+    setNewName('');
+    setNewCapacity(100);
+    setNewAmenities('Laser Projector, Wi-Fi, Microphones, Air Conditioned');
+    setNewDescription('Modern multi-media campus facility.');
+  };
+
+  const handleOpenEdit = (fac: Facility) => {
+    setEditingFacility(fac);
+    setEditCapacity(fac.capacity);
+    setEditStatus(fac.status);
+    setEditNotice(fac.maintenanceNotice || '');
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFacility) return;
+    try {
+      await facilityService.updateFacility(editingFacility.id, {
+        capacity: Number(editCapacity),
+        status: editStatus,
+        maintenanceNotice: editStatus === 'Under Maintenance' ? editNotice : undefined,
+      });
+      success('Facility Updated', `${editingFacility.name} capacity and status have been updated.`);
+      setEditingFacility(null);
+      loadFacilities();
+    } catch (err: any) {
+      error('Update Failed', err.message || 'Could not update facility.');
+    }
+  };
+
+  const handleDeleteFacility = async () => {
+    if (!deletingFacility) return;
+    try {
+      await facilityService.deleteFacility(deletingFacility.id);
+      success('Facility Removed', `${deletingFacility.name} has been removed from the campus catalog.`);
+      setDeletingFacility(null);
+      loadFacilities();
+    } catch (err: any) {
+      error('Removal Failed', err.message || 'Could not delete facility.');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header & Smart AI Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-            Explore Campus Facilities
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
+              Explore Campus Facilities
+            </h2>
+            {isManagement && (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                HOD Control Active
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
             Discover and reserve lecture theatres, computing laboratories, sports arenas, and meeting rooms.
           </p>
         </div>
 
-        <Link
-          to="/recommendations"
-          className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 transition-colors"
-        >
-          <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-          <span>Can't decide? Use Smart AI Recommendation</span>
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
+        <div className="flex items-center gap-2.5">
+          {isManagement && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Facility</span>
+            </button>
+          )}
+
+          <Link
+            to="/recommendations"
+            className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50/60 px-3.5 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-300 transition-colors"
+          >
+            <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <span className="hidden sm:inline">AI Recommendation</span>
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
       </div>
 
       {/* Filter and Search Controls Bar */}
@@ -90,17 +214,17 @@ export function FacilityDiscoveryPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search facilities by name, building, amenities (e.g. 'Projector', 'CS Block')..."
-            className="w-full rounded-lg border border-neutral-300 bg-neutral-50 py-2 pl-10 pr-4 text-xs text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-indigo-600 focus:bg-white dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+            placeholder="Search venue name, building complex, or features..."
+            className="w-full rounded-lg border border-neutral-300 bg-neutral-50 py-2 pl-10 pr-4 text-xs text-neutral-900 outline-none placeholder:text-neutral-400 focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
 
         {/* Filters Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
           {/* Facility Type */}
           <div>
             <label className="block text-[10px] uppercase font-semibold text-neutral-500 mb-1">
-              Facility Type
+              Category
             </label>
             <select
               value={selectedType}
@@ -110,38 +234,36 @@ export function FacilityDiscoveryPage() {
               <option value="All">All Types</option>
               <option value="Auditorium">Auditorium</option>
               <option value="Seminar Hall">Seminar Hall</option>
-              <option value="Classroom">Classroom</option>
-              <option value="Computer Lab">Computer Lab</option>
-              <option value="Laboratory">Laboratory</option>
-              <option value="Sports Ground">Sports Ground</option>
-              <option value="Meeting Room">Meeting Room</option>
+              <option value="Computing Lab">Computing Lab</option>
+              <option value="Smart Classroom">Smart Classroom</option>
+              <option value="Conference Room">Conference Room</option>
+              <option value="Sports Arena">Sports Arena</option>
             </select>
           </div>
 
-          {/* Building */}
+          {/* Building Complex */}
           <div>
             <label className="block text-[10px] uppercase font-semibold text-neutral-500 mb-1">
-              Building
+              Complex
             </label>
             <select
               value={selectedBuilding}
               onChange={(e) => setSelectedBuilding(e.target.value)}
               className="w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-xs text-neutral-800 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
             >
-              <option value="All">All Buildings</option>
-              <option value="Main Academic Block">Main Academic Block</option>
-              <option value="Auditorium Complex">Auditorium Complex</option>
-              <option value="Engineering Block">Engineering Block</option>
-              <option value="Computer Science Block">CS Block</option>
-              <option value="Administrative Block">Administrative Block</option>
-              <option value="Sports Complex">Sports Complex</option>
+              <option value="All">All Complexes</option>
+              <option value="APJ Abdul Kalam Complex">APJ Kalam Complex</option>
+              <option value="CV Raman Block">CV Raman Block</option>
+              <option value="Turing Computing Centre">Turing Centre</option>
+              <option value="Aryabhata Academic Wing">Aryabhata Wing</option>
+              <option value="Major Dhyan Chand Sports Complex">Sports Complex</option>
             </select>
           </div>
 
           {/* Status */}
           <div>
             <label className="block text-[10px] uppercase font-semibold text-neutral-500 mb-1">
-              Availability
+              Status
             </label>
             <select
               value={selectedStatus}
@@ -244,7 +366,7 @@ export function FacilityDiscoveryPage() {
                     referrerPolicy="no-referrer"
                     className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                   />
-                  <div className="absolute top-3 right-3">
+                  <div className="absolute top-3 right-3 flex items-center gap-1.5">
                     <StatusBadge status={fac.status} />
                   </div>
                   <div className="absolute bottom-3 left-3 rounded-md bg-black/60 backdrop-blur-xs px-2 py-1 text-[11px] font-mono text-white">
@@ -274,13 +396,12 @@ export function FacilityDiscoveryPage() {
                   </p>
 
                   {/* Metadata Chips / Clean Inline Text */}
-                  <div className="mt-3 flex items-center gap-3 text-xs text-neutral-600 dark:text-neutral-400 border-t border-neutral-100 pt-3 dark:border-neutral-800">
+                  <div className="mt-3 flex items-center justify-between text-xs text-neutral-600 dark:text-neutral-400 border-t border-neutral-100 pt-3 dark:border-neutral-800">
                     <span className="flex items-center gap-1 font-semibold text-neutral-900 dark:text-neutral-100">
                       <Users className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                      {fac.capacity} Max Seats
+                      {fac.capacity} Max Capacity
                     </span>
-                    <span>·</span>
-                    <span className="truncate">{fac.floor}</span>
+                    <span className="truncate text-neutral-400">{fac.floor}</span>
                   </div>
 
                   {/* Amenities Preview */}
@@ -309,28 +430,280 @@ export function FacilityDiscoveryPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-800/20">
-                <Link
-                  to={`/facilities/${fac.id}`}
-                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
-                >
-                  View Details
-                </Link>
+              <div className="border-t border-neutral-100 bg-neutral-50/50 p-4 dark:border-neutral-800 dark:bg-neutral-800/20 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    to={`/facilities/${fac.id}`}
+                    className="flex-1 text-center rounded-lg border border-neutral-300 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 transition-colors"
+                  >
+                    Details
+                  </Link>
 
-                <Link
-                  to={`/book?facility=${fac.id}`}
-                  className={`rounded-lg px-3.5 py-1.5 text-xs font-semibold text-white transition-colors ${
-                    fac.status === 'Under Maintenance'
-                      ? 'bg-neutral-400 cursor-not-allowed pointer-events-none'
-                      : 'bg-indigo-600 hover:bg-indigo-700'
-                  }`}
-                >
-                  {fac.status === 'Under Maintenance' ? 'In Maintenance' : 'Book Now'}
-                </Link>
+                  <Link
+                    to={`/book?facility=${fac.id}`}
+                    className={`flex-1 text-center rounded-lg py-1.5 text-xs font-semibold text-white transition-colors ${
+                      fac.status === 'Under Maintenance'
+                        ? 'bg-neutral-400 cursor-not-allowed pointer-events-none'
+                        : 'bg-indigo-600 hover:bg-indigo-700'
+                    }`}
+                  >
+                    {fac.status === 'Under Maintenance' ? 'Maintenance' : 'Book'}
+                  </Link>
+                </div>
+
+                {/* HOD Direct Controls: Edit Capacity & Remove Facility */}
+                {isManagement && (
+                  <div className="flex items-center gap-2 pt-1 border-t border-neutral-200/60 dark:border-neutral-800">
+                    <button
+                      onClick={() => handleOpenEdit(fac)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded bg-amber-50 py-1 text-[11px] font-semibold text-amber-800 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 transition-colors"
+                    >
+                      <Edit className="h-3 w-3" />
+                      <span>Edit Capacity ({fac.capacity})</span>
+                    </button>
+                    <button
+                      onClick={() => setDeletingFacility(fac)}
+                      className="inline-flex items-center justify-center gap-1 rounded bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 transition-colors"
+                      title="Remove facility from campus catalog"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {/* ADD FACILITY MODAL (For HOD & Admin) */}
+      {isAddModalOpen && (
+        <Modal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          title="Add New Campus Facility"
+          subtitle="Register a new room, lab, or auditorium into the CampusFlow database"
+          maxWidth="md"
+        >
+          <form onSubmit={handleCreateFacility} className="space-y-4 py-2 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Facility Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="e.g. Einstein Seminar Hall"
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Category Type
+                </label>
+                <select
+                  value={newType}
+                  onChange={(e) => setNewType(e.target.value as any)}
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                >
+                  <option value="Auditorium">Auditorium</option>
+                  <option value="Seminar Hall">Seminar Hall</option>
+                  <option value="Computing Lab">Computing Lab</option>
+                  <option value="Smart Classroom">Smart Classroom</option>
+                  <option value="Conference Room">Conference Room</option>
+                  <option value="Sports Arena">Sports Arena</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Building Complex
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newBuilding}
+                  onChange={(e) => setNewBuilding(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Max Capacity (Seats)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  value={newCapacity}
+                  onChange={(e) => setNewCapacity(Number(e.target.value))}
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Floor Level
+                </label>
+                <input
+                  type="text"
+                  value={newFloor}
+                  onChange={(e) => setNewFloor(e.target.value)}
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Equipment & Amenities (comma separated)
+              </label>
+              <input
+                type="text"
+                value={newAmenities}
+                onChange={(e) => setNewAmenities(e.target.value)}
+                placeholder="Laser Projector, Wi-Fi, Microphones, Air Conditioned"
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Image URL
+              </label>
+              <input
+                type="url"
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+                placeholder="https://images.unsplash.com/..."
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Brief Description
+              </label>
+              <textarea
+                rows={2}
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="rounded-lg border border-neutral-300 px-3.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+              >
+                Create Facility
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* EDIT FACILITY MODAL (For HOD & Admin) */}
+      {editingFacility && (
+        <Modal
+          isOpen={!!editingFacility}
+          onClose={() => setEditingFacility(null)}
+          title={`Edit ${editingFacility.name}`}
+          subtitle="Adjust seating capacity, maintenance status, or operational rules"
+          maxWidth="sm"
+        >
+          <form onSubmit={handleSaveEdit} className="space-y-4 py-2 text-xs">
+            <div>
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Seating Capacity
+              </label>
+              <input
+                type="number"
+                required
+                min={1}
+                value={editCapacity}
+                onChange={(e) => setEditCapacity(Number(e.target.value))}
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                Operational Status
+              </label>
+              <select
+                value={editStatus}
+                onChange={(e) => setEditStatus(e.target.value as any)}
+                className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+              >
+                <option value="Available">Available</option>
+                <option value="Booked">Booked</option>
+                <option value="Under Maintenance">Under Maintenance</option>
+              </select>
+            </div>
+
+            {editStatus === 'Under Maintenance' && (
+              <div>
+                <label className="block font-semibold text-neutral-700 dark:text-neutral-300 mb-1">
+                  Maintenance Notice
+                </label>
+                <input
+                  type="text"
+                  value={editNotice}
+                  onChange={(e) => setEditNotice(e.target.value)}
+                  placeholder="e.g. AC maintenance until Oct 10"
+                  className="w-full rounded-lg border border-neutral-300 bg-neutral-50 p-2 text-xs text-neutral-900 outline-none focus:border-indigo-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setEditingFacility(null)}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* CONFIRM DELETE FACILITY DIALOG */}
+      {deletingFacility && (
+        <ConfirmDialog
+          isOpen={!!deletingFacility}
+          onClose={() => setDeletingFacility(null)}
+          onConfirm={handleDeleteFacility}
+          title="Remove Facility"
+          message={`Are you sure you want to permanently remove "${deletingFacility.name}" from CampusFlow? All future booking slots for this facility will be released.`}
+          confirmLabel="Yes, Remove Facility"
+          cancelLabel="Cancel"
+          variant="danger"
+        />
       )}
     </div>
   );

@@ -42,12 +42,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const newToast: Toast = { id, title, message, type, duration };
-      setToasts((prev) => [...prev, newToast]);
+      
+      // Schedule toast addition to prevent "Cannot update a component while rendering another component"
+      setTimeout(() => {
+        setToasts((prev) => [...prev, newToast]);
+      }, 0);
 
       if (duration > 0) {
         setTimeout(() => {
           removeToast(id);
-        }, duration);
+        }, duration + 10);
       }
     },
     [removeToast]

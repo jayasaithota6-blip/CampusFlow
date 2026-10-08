@@ -9,13 +9,18 @@ import {
   Layers,
   ArrowRight,
   CheckCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import { notificationService } from '../services/notificationService';
 import { NotificationItem } from '../types';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { EmptyState, LoadingState } from '../components/common/EmptyState';
 
 export function NotificationsPage() {
+  const { user, isHOD, role } = useAuth();
+  const isHODUser = isHOD || role === 'hod' || user?.role === 'hod';
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [loading, setLoading] = useState(true);
@@ -23,23 +28,31 @@ export function NotificationsPage() {
   const { success } = useToast();
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (user) {
+      loadNotifications();
+    }
+  }, [user, isHODUser]);
 
   const loadNotifications = async () => {
+    if (!user) return;
     setLoading(true);
-    const list = await notificationService.getAll();
+    // HOD receives full stream of all user requests and operational alerts
+    const list = isHODUser ? await notificationService.getAll() : await notificationService.getByUser(user.id);
     setNotifications(list);
     setLoading(false);
   };
 
   const handleMarkAsRead = async (id: string) => {
-    await notificationService.markAsRead(id);
+    if (!user) return;
+    const targetId = isHODUser ? 'campushod@gmail.com' : user.id;
+    await notificationService.markAsRead(targetId, id);
     loadNotifications();
   };
 
   const handleMarkAllAsRead = async () => {
-    await notificationService.markAllAsRead();
+    if (!user) return;
+    const targetId = isHODUser ? 'campushod@gmail.com' : user.id;
+    await notificationService.markAllAsRead(targetId);
     success('Notifications Updated', 'All notifications marked as read.');
     loadNotifications();
   };
@@ -69,11 +82,20 @@ export function NotificationsPage() {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
-            Notification Center
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-100">
+              {isHODUser ? 'Campus HOD Request Stream & Notifications' : 'Notification Center'}
+            </h2>
+            {isHODUser && (
+              <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                All User Requests
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Real-time campus operational alerts, status transitions, and schedule reminders.
+            {isHODUser
+              ? 'Real-time university request messages, student and faculty bookings, and department review alerts.'
+              : 'Real-time campus operational alerts, status transitions, and schedule reminders.'}
           </p>
         </div>
 
@@ -88,19 +110,32 @@ export function NotificationsPage() {
 
       {/* Category Tabs */}
       <div className="flex flex-wrap items-center gap-1 rounded-xl border border-neutral-200 bg-white p-2 shadow-2xs dark:border-neutral-800 dark:bg-neutral-900">
-        {['All', 'Booking', 'Approval', 'Facility', 'Maintenance', 'System'].map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setCategoryFilter(cat)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-              categoryFilter === cat
-                ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-semibold'
-                : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
+        {['All', 'Booking', 'Approval', 'Facility', 'Maintenance', 'System'].map((cat) => {
+          const count = notifications.filter((n) => (cat === 'All' ? true : n.category === cat)).length;
+
+          return (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                categoryFilter === cat
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-semibold'
+                  : 'text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800'
+              }`}
+            >
+              <span>{cat === 'Booking' && isHODUser ? 'User Requests' : cat}</span>
+              <span
+                className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                  categoryFilter === cat
+                    ? 'bg-neutral-700 text-white dark:bg-neutral-200 dark:text-neutral-900'
+                    : 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Notifications List */}
@@ -147,7 +182,7 @@ export function NotificationsPage() {
                     to={item.link}
                     className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline dark:text-indigo-400 pt-1"
                   >
-                    <span>View Record</span>
+                    <span>View Request Record</span>
                     <ArrowRight className="h-3 w-3" />
                   </Link>
                 )}

@@ -35,14 +35,29 @@ export const departmentService = {
     return list[index];
   },
 
+  async updateDepartment(id: string, updates: Partial<Department>): Promise<Department> {
+    const list = getStoredDepartments();
+    const index = list.findIndex((d) => d.id === id);
+    if (index === -1) throw new Error('Department not found');
+    list[index] = { ...list[index], ...updates };
+    saveDepartments(list);
+    return list[index];
+  },
+
   async addDepartment(dept: Omit<Department, 'id'>): Promise<Department> {
     const list = getStoredDepartments();
     const item: Department = {
       ...dept,
       id: `dept-${dept.code.toLowerCase()}-${Date.now().toString(36)}`,
     };
-    list.push(item);
+    list.unshift(item);
     saveDepartments(list);
     return item;
+  },
+
+  async deleteDepartment(id: string): Promise<void> {
+    const list = getStoredDepartments();
+    const filtered = list.filter((d) => d.id !== id);
+    saveDepartments(filtered);
   },
 };

@@ -91,4 +91,34 @@ export const facilityService = {
     saveFacilities(list);
     return list[index];
   },
+
+  async addFacility(data: Omit<Facility, 'id'>): Promise<Facility> {
+    const list = getStoredFacilities();
+    const newId = `fac-${Date.now().toString(36)}`;
+    const newFacility: Facility = {
+      ...data,
+      id: newId,
+    };
+    list.unshift(newFacility);
+    saveFacilities(list);
+    return newFacility;
+  },
+
+  async updateFacility(id: string, updates: Partial<Facility>): Promise<Facility> {
+    const list = getStoredFacilities();
+    const index = list.findIndex((f) => f.id === id);
+    if (index === -1) throw new Error('Facility not found');
+    list[index] = {
+      ...list[index],
+      ...updates,
+    };
+    saveFacilities(list);
+    return list[index];
+  },
+
+  async deleteFacility(id: string): Promise<void> {
+    const list = getStoredFacilities();
+    const filtered = list.filter((f) => f.id !== id);
+    saveFacilities(filtered);
+  },
 };

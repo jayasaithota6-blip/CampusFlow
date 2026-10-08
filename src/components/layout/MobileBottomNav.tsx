@@ -9,11 +9,8 @@ interface MobileBottomNavProps {
 }
 
 export function MobileBottomNav({ onOpenMenu }: MobileBottomNavProps) {
-  const { role } = useAuth();
-  const dashboardPath = role === 'admin' ? '/admin' : '/dashboard';
-
   const navItems = [
-    { label: 'Home', path: dashboardPath, icon: LayoutDashboard },
+    { label: 'Home', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Explore', path: '/facilities', icon: Building2 },
     { label: 'Book', path: '/book', icon: PlusCircle, isPrimary: true },
     { label: 'Bookings', path: '/my-bookings', icon: ClipboardList },
