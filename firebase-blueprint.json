@@ -1,0 +1,155 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing role, academic department and college ID",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "collegeId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "faculty", "hod", "admin", "facility_manager"] },
+        "department": { "type": "string" },
+        "phone": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "department", "status"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Academic Department roster, appointed HOD, and faculty coordinator",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "code": { "type": "string" },
+        "coordinatorName": { "type": "string" },
+        "coordinatorEmail": { "type": "string" },
+        "hodName": { "type": "string" },
+        "studentCount": { "type": "number" },
+        "staffCount": { "type": "number" }
+      },
+      "required": ["id", "name", "code", "coordinatorName", "hodName"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Campus inventory item with allocation status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "totalQuantity": { "type": "number" },
+        "availableQuantity": { "type": "number" },
+        "status": { "type": "string" },
+        "location": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "totalQuantity", "availableQuantity", "status"]
+    },
+    "WorkOrder": {
+      "title": "WorkOrder",
+      "description": "Maintenance work order request and status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "itemName": { "type": "string" },
+        "location": { "type": "string" },
+        "reason": { "type": "string" },
+        "status": { "type": "string" },
+        "priority": { "type": "string" },
+        "contractor": { "type": "string" }
+      },
+      "required": ["id", "itemName", "location", "reason", "status", "priority"]
+    },
+    "Venue": {
+      "title": "Venue",
+      "description": "Campus facility and room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "string" },
+        "capacity": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "building", "capacity", "status"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Facility reservation order with HOD approval and QR code token",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "facilityId": { "type": "string" },
+        "facilityName": { "type": "string" },
+        "eventName": { "type": "string" },
+        "date": { "type": "string" },
+        "startTime": { "type": "string" },
+        "endTime": { "type": "string" },
+        "organizerId": { "type": "string" },
+        "organizerName": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "facilityId", "facilityName", "date", "startTime", "endTime", "status"]
+    },
+    "GateScan": {
+      "title": "GateScan",
+      "description": "Access verification log from security gate checkpoint",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "tokenId": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "personName": { "type": "string" },
+        "gate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "tokenId", "timestamp", "personName", "gate", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Campus user accounts and profiles"
+    },
+    "/departments/{deptId}": {
+      "schema": "Department",
+      "description": "University academic departments"
+    },
+    "/equipment/{itemId}": {
+      "schema": "Equipment",
+      "description": "Campus equipment and resources"
+    },
+    "/workOrders/{orderId}": {
+      "schema": "WorkOrder",
+      "description": "Maintenance tickets and work orders"
+    },
+    "/venues/{venueId}": {
+      "schema": "Venue",
+      "description": "Campus venues and facilities"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Facility reservation orders"
+    },
+    "/gateScans/{scanId}": {
+      "schema": "GateScan",
+      "description": "Access verification scans"
+    },
+    "/passes/{passId}": {
+      "description": "Digital QR passes"
+    },
+    "/auditLogs/{logId}": {
+      "description": "Administrative audit entries"
+    },
+    "/settings/{settingId}": {
+      "description": "Institutional governance parameters and limits"
+    }
+  }
+}
